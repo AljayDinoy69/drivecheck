@@ -17,8 +17,21 @@ import {
 } from "recharts";
 
 export default function Reports() {
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("daily");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("timeFilter") as TimeFilter) || "daily";
+    }
+    return "daily";
+  });
+
   const entries = useStore((state) => state.entries);
+
+  // Ensure dates are actual Date objects
+  const parsedEntries = entries.map(entry => ({
+    ...entry,
+    entryTime: new Date(entry.entryTime),
+    exitTime: entry.exitTime ? new Date(entry.exitTime) : null,
+  }));
 
   const filterEntries = () => {
     const now = new Date();
@@ -35,10 +48,10 @@ export default function Reports() {
         startDate.setMonth(startDate.getMonth() - 1);
         break;
       case 'all':
-        return entries;
+        return parsedEntries;
     }
 
-    return entries.filter(entry => entry.entryTime >= startDate);
+    return parsedEntries.filter(entry => entry.entryTime >= startDate);
   };
 
   const filteredEntries = filterEntries();
@@ -77,6 +90,7 @@ export default function Reports() {
           value={timeFilter}
           onValueChange={(value: TimeFilter) => {
             setTimeFilter(value);
+            localStorage.setItem("timeFilter", value);
           }}
         >
           <SelectTrigger className="w-[180px]">
