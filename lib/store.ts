@@ -1,44 +1,49 @@
-'use client';
-
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware'; // <-- import persist!
 import { VehicleEntry } from '@/app/types';
+import { prisma } from './prisma';
 
 interface StoreState {
   entries: VehicleEntry[];
-  addEntry: (entry: Omit<VehicleEntry, 'id' | 'entryTime'>) => void;
-  updateExitTime: (id: string) => void;
-  getEntries: () => VehicleEntry[];
+  addEntry: (entry: Omit<VehicleEntry, 'id' | 'entryTime'>) => Promise<void>;
+  updateExitTime: (id: string) => Promise<void>;
+  getEntries: () => Promise<VehicleEntry[]>;
 }
 
+export const useStore = create<StoreState>((set, get) => ({
+  entries: [],
+  addEntry: async (entry) => {
+    const response = await fetch('/api/vehicle-entry/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    });
 
-
-export const useStore = create<StoreState>()(
-  persist(
-    (set, get) => ({
-      entries: [],
-      addEntry: (entry) => {
-        const newEntry: VehicleEntry = {
-          id: crypto.randomUUID(),
-          entryTime: new Date(),
-          ...entry
-        };
-        set((state) => ({
-          entries: [newEntry, ...state.entries]
-        }));
-      },
-      updateExitTime: (id) => {
-        set((state) => ({
-          entries: state.entries.map((entry) =>
-            entry.id === id ? { ...entry, exitTime: new Date() } : entry
-          )
-        }));
-      },
-      getEntries: () => get().entries,
-    }),
-    {
-      name: 'vehicle-entries-storage', // 👈 key name in localStorage
-      partialize: (state) => ({ entries: state.entries }), // only save entries (not functions)
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to add vehicle entry');
     }
-  )
-);
+
+    const newEntry = await response.json();
+    set((state) => ({
+      entries: [newEntry as VehicleEntry, ...state.entries],
+    }));
+  },
+  updateExitTime: async (id) => {
+    await prisma.vehicleEntry.update({
+      where: { id },
+      data: { exitTime: new Date() },
+    });
+    set((state) => ({
+      entries: state.entries.map((entry) =>
+        entry.id === id ? { ...entry, exitTime: new Date() } : entry
+      ),
+    }));
+  },
+  getEntries: async () => {
+    const entries = await prisma.vehicleEntry.findMany({
+      orderBy: { entryTime: 'desc' },
+    });
+    set({ entries: entries as VehicleEntry[] });
+    return entries as VehicleEntry[];
+  },
+}));

@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model VehicleEntry {
+  id            String   @id @default(uuid())
+  vehicleType   String
+  brand         String
+  model         String
+  plateNumber   String
+  driverName    String
+  contactNumber String
+  purpose       String
+  entryTime     DateTime @default(now())
+  exitTime      DateTime?
+
+
+  @@map("vehicle_entries")
+}
