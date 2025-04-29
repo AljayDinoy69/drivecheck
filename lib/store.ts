@@ -29,13 +29,22 @@ export const useStore = create<StoreState>((set, get) => ({
     }));
   },
   updateExitTime: async (id) => {
-    await prisma.vehicleEntry.update({
-      where: { id },
-      data: { exitTime: new Date() },
+    const response = await fetch('/api/vehicle-entry/exit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
     });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to update exit time');
+    }
+
+    const updatedEntry = await response.json();
+
     set((state) => ({
       entries: state.entries.map((entry) =>
-        entry.id === id ? { ...entry, exitTime: new Date() } : entry
+        entry.id === id ? updatedEntry : entry
       ),
     }));
   },
